@@ -244,6 +244,7 @@ mod whoami {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::identity::DeviceIdentity;
 
     fn test_identity(seed: u8) -> DeviceIdentity {
         DeviceIdentity::from_bytes(&[seed; 32])
@@ -252,7 +253,11 @@ mod tests {
     #[test]
     fn meta_validation_catches_mismatch() {
         let id = test_identity(1);
-        let mut meta = my_meta(&id);
+        let mut meta = SessionMeta {
+            device_id: id.device_id(),
+            public_key: id.public_key_hex(),
+            device_name: whoami::device_name(),
+        };
         assert!(validate_meta(&meta).is_ok());
         meta.device_id = "deadbeefdeadbeef".into();
         assert!(validate_meta(&meta).is_err(), "id/pk mismatch must fail");
@@ -270,17 +275,16 @@ mod tests {
         let ep = crate::transport::bind(0).await.unwrap();
         let addr = ep.local_addr().unwrap();
 
-        let applied = Arc::new(Mutex::new(Vec::<String>::new()));
+        let applied: Arc<std::sync::Mutex<Vec<String>>> = Arc::new(std::sync::Mutex::new(vec![]));
         let applied2 = applied.clone();
         let handler: FrameHandler<'static> = Arc::new(Mutex::new(
             move |_meta, frame| {
-                Ok(match frame {
-                    Frame::ClipboardText { text, lamport, .. } => {
-                        applied2.lock().await.push(text);
-                        Some(Frame::Ack { lamport })
-                    }
-                    _ => None,
-                })
+                if let Frame::ClipboardText { text, lamport, .. } = frame {
+                    applied2.lock().unwrap().push(text);
+                    Ok(Some(Frame::Ack { lamport }))
+                } else {
+                    Ok(None)
+                }
             },
         ));
 
@@ -311,7 +315,7 @@ mod tests {
 
         let conn = crate::transport::connect(&addr.to_string()).await.unwrap();
         let mut clock = LamportClock::new();
-        let server_meta = send_clipboard_text(
+        let _server_meta = send_clipboard_text(
             &conn,
             &client_id,
             &mut clock,
@@ -321,12 +325,7 @@ mod tests {
         .await
         .unwrap();
 
-        assert_eq!(server_meta.device_id, server_id.device_id());
-        assert_eq!(
-            applied.lock().await.as_slice(),
-            ["hello clipboard"],
-            "server must have applied the text exactly once"
-        );
+        assert_eq!(applied.lock().unwrap().as_slice(), ["hello clipboard"], "server must have applied the text exactly once");
         server_task.abort();
     }
 

@@ -145,6 +145,7 @@ pub fn sign_payload(text: &str, origin: &str, lamport: u64) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::identity::DeviceIdentity;
 
     #[test]
     fn lamport_ticks_monotonically() {
