@@ -102,9 +102,13 @@ clipd/
 ## 5. Roadmap
 
 ### Phase 0 — Foundations (week 1)
-- [ ] Cargo workspace, CI skeleton, clippy/fmt gates
-- [ ] Decide: raw `quinn` vs `iroh` (spike both, pick in week 1)
-- [ ] Clipboard backends: macOS first (`cocoa` crate), read+write text
+- [x] Cargo workspace, crates: core / cli / clipboard
+- [x] Identity: ed25519 keypair, pairing fingerprint, persisted identity.key
+- [x] Clipboard backend (macOS first): arboard text read/write — working (`clipd copy` / `paste`)
+- [x] mDNS advertisement + scan implemented (`clipd scan`)
+- [x] QUIC server binding with self-signed cert spike
+- [ ] Decide: raw `quinn` vs `iroh` — pending week-1 comparison; quinn plumbing already proven
+- [x] Verified locally: build clean, whoami/copy/paste/scan run on macOS ARM
 
 ### Phase 1 — LAN MVP (weeks 2–3)
 - [ ] mDNS discovery + peer identity (ed25519 keypair, fingerprint)
