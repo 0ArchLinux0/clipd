@@ -245,6 +245,7 @@ mod whoami {
 mod tests {
     use super::*;
     use crate::identity::DeviceIdentity;
+    use std::time::Duration;
 
     fn test_identity(seed: u8) -> DeviceIdentity {
         DeviceIdentity::from_bytes(&[seed; 32])
@@ -274,6 +275,9 @@ mod tests {
 
         let ep = crate::transport::bind(0).await.unwrap();
         let addr = ep.local_addr().unwrap();
+
+        // Barrier: ensure server accept loop starts before client connects.
+        tokio::time::sleep(Duration::from_millis(100)).await;
 
         let applied: Arc<std::sync::Mutex<Vec<String>>> = Arc::new(std::sync::Mutex::new(vec![]));
         let applied2 = applied.clone();
@@ -313,7 +317,7 @@ mod tests {
             }
         });
 
-        let conn = crate::transport::connect(&addr.to_string()).await.unwrap();
+        let conn = crate::transport::connect(&format!("127.0.0.1:{}", addr.port())).await.unwrap();
         let mut clock = LamportClock::new();
         let _server_meta = send_clipboard_text(
             &conn,
@@ -358,7 +362,7 @@ mod tests {
             }
         });
 
-        let conn = crate::transport::connect(&addr.to_string()).await.unwrap();
+        let conn = crate::transport::connect(&format!("127.0.0.1:{}", addr.port())).await.unwrap();
         let client_id = Arc::new(test_identity(5));
         let result = client_handshake(&conn, &client_id, None).await;
         // Handshake writes Hello, then waits for server Hello; server rejects
