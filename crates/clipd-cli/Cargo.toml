@@ -14,6 +14,7 @@ clipd-core = { path = "../clipd-core" }
 clipd-clipboard = { path = "../clipd-clipboard" }
 tokio = { workspace = true }
 anyhow = { workspace = true }
+hex = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 

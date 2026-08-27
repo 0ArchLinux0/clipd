@@ -1,0 +1,10 @@
+/Users/minjunyeah/code_repo/clipd/target/debug/deps/mdns_sd-2526bb6f576c64b3.d: /Users/minjunyeah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mdns-sd-0.13.11/src/lib.rs /Users/minjunyeah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mdns-sd-0.13.11/src/dns_cache.rs /Users/minjunyeah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mdns-sd-0.13.11/src/dns_parser.rs /Users/minjunyeah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mdns-sd-0.13.11/src/error.rs /Users/minjunyeah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mdns-sd-0.13.11/src/service_daemon.rs /Users/minjunyeah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mdns-sd-0.13.11/src/service_info.rs
+
+/Users/minjunyeah/code_repo/clipd/target/debug/deps/libmdns_sd-2526bb6f576c64b3.rmeta: /Users/minjunyeah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mdns-sd-0.13.11/src/lib.rs /Users/minjunyeah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mdns-sd-0.13.11/src/dns_cache.rs /Users/minjunyeah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mdns-sd-0.13.11/src/dns_parser.rs /Users/minjunyeah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mdns-sd-0.13.11/src/error.rs /Users/minjunyeah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mdns-sd-0.13.11/src/service_daemon.rs /Users/minjunyeah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mdns-sd-0.13.11/src/service_info.rs
+
+/Users/minjunyeah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mdns-sd-0.13.11/src/lib.rs:
+/Users/minjunyeah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mdns-sd-0.13.11/src/dns_cache.rs:
+/Users/minjunyeah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mdns-sd-0.13.11/src/dns_parser.rs:
+/Users/minjunyeah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mdns-sd-0.13.11/src/error.rs:
+/Users/minjunyeah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mdns-sd-0.13.11/src/service_daemon.rs:
+/Users/minjunyeah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mdns-sd-0.13.11/src/service_info.rs:

@@ -58,6 +58,16 @@ impl DeviceIdentity {
         self.signing_key.sign(msg)
     }
 
+    /// Full hex public key (64 chars).
+    pub fn public_key_hex(&self) -> String {
+        hex::encode(self.public().as_bytes())
+    }
+
+    /// Short hex device id: first 8 bytes of the public key (16 chars).
+    pub fn device_id(&self) -> String {
+        hex::encode(&self.public().as_bytes()[..8])
+    }
+
     pub fn verify(&self, msg: &[u8], sig: &Signature) -> bool {
         self.public().verify(msg, sig).is_ok()
     }
