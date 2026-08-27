@@ -1,0 +1,1 @@
+/Users/minjunyeah/code_repo/clipd/target/debug/libclipd_core.rlib: /Users/minjunyeah/code_repo/clipd/crates/clipd-core/src/discovery.rs /Users/minjunyeah/code_repo/clipd/crates/clipd-core/src/identity.rs /Users/minjunyeah/code_repo/clipd/crates/clipd-core/src/lib.rs /Users/minjunyeah/code_repo/clipd/crates/clipd-core/src/transport.rs

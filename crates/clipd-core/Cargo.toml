@@ -1,0 +1,22 @@
+[package]
+name = "clipd-core"
+description = "Core engine: transport, discovery, crypto, sync"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+tokio = { workspace = true }
+anyhow = { workspace = true }
+rand_core = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true }
+mdns-sd = { workspace = true }
+quinn = { workspace = true }
+rustls = { workspace = true }
+rcgen = { workspace = true }
+ed25519-dalek = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

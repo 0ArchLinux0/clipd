@@ -1,0 +1,11 @@
+[package]
+name = "clipd-clipboard"
+description = "Platform clipboard backends"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+tracing = { workspace = true }
+arboard = "3"

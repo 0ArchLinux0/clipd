@@ -1,0 +1,21 @@
+[package]
+name = "clipd-cli"
+description = "CLI for the clipd daemon"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "clipd"
+path = "src/main.rs"
+
+[dependencies]
+clipd-core = { path = "../clipd-core" }
+clipd-clipboard = { path = "../clipd-clipboard" }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+security-framework = "3"
