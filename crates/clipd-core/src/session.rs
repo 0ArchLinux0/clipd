@@ -292,6 +292,7 @@ mod tests {
             },
         ));
 
+        tokio::time::sleep(Duration::from_millis(50)).await;
         let peers = Arc::new(Mutex::new(
             PeerStore::load(std::env::temp_dir().join(format!(
                 "clipd-test-peers-{}.json",
@@ -338,6 +339,7 @@ mod tests {
         let server_id = Arc::new(test_identity(4));
         let ep = crate::transport::bind(0).await.unwrap();
         let addr = ep.local_addr().unwrap();
+        tokio::time::sleep(Duration::from_millis(50)).await;
         let peers = Arc::new(Mutex::new(
             PeerStore::load("/tmp/clipd-strict-test-empty.json").unwrap(),
         ));
