@@ -19,7 +19,7 @@
 # different macos architectures (x86_64 + aarch64) to cover QUIC + arboard
 # behavior across platforms.
 #
-# The script exits 0 on PASS, non-zero on FAIL.
+# The script exits 0 on PASS, 77 on SKIP (no clipboard available), 1 on FAIL.
 
 set -euo pipefail
 
@@ -29,6 +29,23 @@ BIN=$(cd "$(dirname "$BIN")" && pwd)/$(basename "$BIN")
 if [ ! -x "$BIN" ]; then
   echo "FATAL: $BIN is not an executable"
   exit 2
+fi
+
+# --- Platform clipboard-availability preflight -------------------------------
+# arboard on Linux talks to X11 or wl-clipboard. If neither is reachable, the
+# test cannot exercise the actual clipboard; we skip rather than fail because
+# "no display server" is environmental, not a clipd bug.
+# On macOS, arboard uses NSPasteboard which is always available.
+if [ "$(uname -s)" = "Linux" ]; then
+  if [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then
+    echo "[two-bin] SKIP: no X11 (\$DISPLAY) or Wayland (\$WAYLAND_DISPLAY) on Linux; arboard cannot reach a clipboard"
+    echo "[two-bin] On macOS this test runs against NSPasteboard. On Linux, run it on a desktop session."
+    exit 77
+  fi
+  if ! command -v xclip >/dev/null 2>&1 && ! command -v wl-copy >/dev/null 2>&1 && ! command -v xsel >/dev/null 2>&1; then
+    echo "[two-bin] SKIP: no clipboard CLI helper (xclip / wl-copy / xsel) installed"
+    exit 77
+  fi
 fi
 
 # --- Two isolated data dirs ----------------------------------------------------

@@ -41,9 +41,17 @@ jobs:
         # Spins up two independent clipd daemons on different ports, sends
         # a payload peer-a → peer-b, asserts peer-b's clipboard received it.
         # Closer to two real laptops on a LAN than the in-process unit tests.
+        # Linux runners without a display server SKIP — treated as PASS
+        # because the bug surface is platform-clipboard-availability, not
+        # clipd. macOS (next job) is the gating one.
         run: |
           cargo build --workspace --locked
-          ./tests/two-bin-smoke.sh ./target/debug/clipd
+          ./tests/two-bin-smoke.sh ./target/debug/clipd || rc=$?
+          if [ "${rc:-0}" = "77" ]; then
+            echo "::notice::two-process test SKIPPED (no display server); see run log"
+            exit 0
+          fi
+          exit "${rc:-0}"
 
   build:
     name: build (macos, ${{ matrix.target }})
@@ -79,6 +87,7 @@ jobs:
       - name: two-process integration test (${{ matrix.target }})
         # Same test as the ubuntu job, but on the actual target arch/OS we ship.
         # This is the closest CI gets to a real multi-device LAN test.
+        # macOS runners always have NSPasteboard, so this must PASS (no skip).
         run: |
           cargo build --workspace --release --locked --target ${{ matrix.target }}
           ./tests/two-bin-smoke.sh ./target/${{ matrix.target }}/release/clipd
