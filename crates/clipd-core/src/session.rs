@@ -151,9 +151,12 @@ pub async fn send_clipboard_text(
         signature,
     })
     .await?;
-    tx.finish().context("finishing stream")?;
-
+    // Read the Ack BEFORE finishing the send side: finishing closes the
+    // stream, which can race the server's Ack write and surface as
+    // "connection lost" on the client read.
     let ack = read_frame(&mut rx).await?.context("no ack received")?;
+    tx.finish().ok(); // best-effort; main work is done
+
     match ack {
         Frame::Ack { lamport: l } => Ok(l),
         other => bail!("expected Ack, got {other:?}"),

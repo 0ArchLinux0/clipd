@@ -22,3 +22,22 @@ pub mod transport;
 
 pub const NAME: &str = env!("CARGO_PKG_NAME");
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+#[cfg(test)]
+mod test_init {
+    use std::sync::Once;
+    static INIT: Once = Once::new();
+    /// Initialize tracing once per test binary. Call at the top of each test
+    /// that wants to see logs (cargo test -- --nocapture + RUST_LOG=...).
+    pub fn init() {
+        INIT.call_once(|| {
+            let _ = tracing_subscriber::fmt()
+                .with_env_filter(
+                    tracing_subscriber::EnvFilter::try_from_default_env()
+                        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+                )
+                .with_test_writer()
+                .try_init();
+        });
+    }
+}

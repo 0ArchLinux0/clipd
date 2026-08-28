@@ -228,10 +228,13 @@ mod tests {
         assert_eq!(ack, lamport);
 
         // Same content again → suppressed (echo) even with valid signature.
+        // Re-sign with the bumped lamport so signature verification still passes
+        // (sign_payload includes lamport); echo suppression is what we're proving.
+        let sig2 = id.sign(&sign_payload("hi", &id.device_id(), lamport + 5));
         let (applied2, _) = process_incoming(
             &id.device_id(),
             &id.device_id(),
-            &hex::encode(sig.to_bytes()),
+            &hex::encode(sig2.to_bytes()),
             "hi",
             lamport + 5,
             &id.public_key_hex(),
