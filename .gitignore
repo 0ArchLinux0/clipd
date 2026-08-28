@@ -1,0 +1,11 @@
+# Build artifacts
+/target/
+
+# OS / IDE noise
+.DS_Store
+.idea/
+*.swp
+.vscode/
+
+# Local data dirs created by clipd smoke / two-bin-smoke
+/clipd-smoke-*

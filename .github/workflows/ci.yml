@@ -37,6 +37,14 @@ jobs:
       - name: cargo test (workspace)
         run: cargo test --workspace --locked --all-targets
 
+      - name: two-process integration test
+        # Spins up two independent clipd daemons on different ports, sends
+        # a payload peer-a → peer-b, asserts peer-b's clipboard received it.
+        # Closer to two real laptops on a LAN than the in-process unit tests.
+        run: |
+          cargo build --workspace --locked
+          ./tests/two-bin-smoke.sh ./target/debug/clipd
+
   build:
     name: build (macos, ${{ matrix.target }})
     needs: check
@@ -67,3 +75,10 @@ jobs:
             ${{ runner.os }}-${{ matrix.target }}-cargo-
       - name: cargo build --release (workspace)
         run: cargo build --workspace --release --locked --target ${{ matrix.target }}
+
+      - name: two-process integration test (${{ matrix.target }})
+        # Same test as the ubuntu job, but on the actual target arch/OS we ship.
+        # This is the closest CI gets to a real multi-device LAN test.
+        run: |
+          cargo build --workspace --release --locked --target ${{ matrix.target }}
+          ./tests/two-bin-smoke.sh ./target/${{ matrix.target }}/release/clipd

@@ -10,9 +10,7 @@ use clipd_core::identity::DeviceIdentity;
 use clipd_core::peers::{PeerEntry, PeerStore};
 use clipd_core::protocol::Frame;
 use clipd_core::session::{self, FrameHandler, SessionMeta};
-use clipd_core::sync::{
-    process_incoming, ClipboardSink, LamportClock, LoopGuard,
-};
+use clipd_core::sync::{process_incoming, ClipboardSink, LamportClock, LoopGuard};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -20,8 +18,7 @@ use std::time::Duration;
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info".into()),
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
         )
         .init();
 
@@ -33,9 +30,7 @@ async fn main() -> Result<()> {
     match args.get(1).map(|s| s.as_str()) {
         Some("scan") => cmd_scan()?,
         Some("send") => cmd_send(args.get(2).map(String::as_str)).await?,
-        Some("pair") => {
-            cmd_pair(args.get(2).context("usage: clipd pair <ip:port>")?).await?
-        }
+        Some("pair") => cmd_pair(args.get(2).context("usage: clipd pair <ip:port>")?).await?,
         Some("unpair") => cmd_unpair(args.get(2).context("usage: clipd unpair <id>")?)?,
         Some("peers") => cmd_peers()?,
         Some("copy") => cmd_copy(args.get(2))?,
@@ -72,14 +67,13 @@ fn print_usage(unknown: Option<&str>) {
 
 fn data_dir() -> Result<std::path::PathBuf> {
     if cfg!(target_os = "macos") {
-        let home = std::env::var("HOME")
-            .context("HOME unset; cannot determine data dir")?;
+        let home = std::env::var("HOME").context("HOME unset; cannot determine data dir")?;
         Ok(std::path::PathBuf::from(format!(
             "{home}/Library/Application Support/clipd"
         )))
     } else if cfg!(target_os = "windows") {
-        let appdata = std::env::var("APPDATA")
-            .context("APPDATA unset; cannot determine data dir")?;
+        let appdata =
+            std::env::var("APPDATA").context("APPDATA unset; cannot determine data dir")?;
         Ok(std::path::PathBuf::from(format!("{appdata}\\clipd")))
     } else {
         Ok(std::path::PathBuf::from(".clipd"))
@@ -214,9 +208,12 @@ async fn cmd_pair(addr: &str) -> Result<()> {
 }
 
 fn sas_code(identity: &DeviceIdentity, meta: &SessionMeta) -> Result<String> {
-    let mine: [u8; 32] =
-        hex::decode(identity.public_key_hex())?.as_slice().try_into()?;
-    let theirs: [u8; 32] = hex::decode(meta.public_key.clone())?.as_slice().try_into()?;
+    let mine: [u8; 32] = hex::decode(identity.public_key_hex())?
+        .as_slice()
+        .try_into()?;
+    let theirs: [u8; 32] = hex::decode(meta.public_key.clone())?
+        .as_slice()
+        .try_into()?;
     Ok(clipd_core::sas::pairing_code(&mine, &theirs))
 }
 
@@ -246,8 +243,7 @@ async fn cmd_send(addr: Option<&str>) -> Result<()> {
     let conn = clipd_core::transport::connect(&target).await?;
     let mut clock = LamportClock::new();
     let lamport =
-        session::send_clipboard_text(&conn, &identity, &mut clock, &text, Some(&peers))
-            .await?;
+        session::send_clipboard_text(&conn, &identity, &mut clock, &text, Some(&peers)).await?;
     tracing::info!(to = %target, sent_lamport = lamport, bytes = text.len(), "sent");
     println!("sent to {} ({})", target, lamport);
     conn.close(0u32.into(), b"done");
@@ -256,7 +252,9 @@ async fn cmd_send(addr: Option<&str>) -> Result<()> {
 
 async fn first_discovered_peer() -> Option<String> {
     let found = clipd_core::discovery::scan(Duration::from_secs(3)).ok()?;
-    found.first().and_then(|(ip, p)| (!ip.is_empty()).then(|| format!("{ip}:{}", p.quic_port)))
+    found
+        .first()
+        .and_then(|(ip, p)| (!ip.is_empty()).then(|| format!("{ip}:{}", p.quic_port)))
 }
 
 // ---------------------------------------------------------------------------
@@ -264,9 +262,7 @@ async fn first_discovered_peer() -> Option<String> {
 
 async fn cmd_serve() -> std::convert::Infallible {
     let dir = data_dir().expect("data dir");
-    let identity = Arc::new(
-        DeviceIdentity::load_or_create(&dir).expect("load identity"),
-    );
+    let identity = Arc::new(DeviceIdentity::load_or_create(&dir).expect("load identity"));
     let peers = Arc::new(tokio::sync::Mutex::new(
         PeerStore::load(dir.join("peers.json")).expect("load peers"),
     ));
@@ -277,9 +273,14 @@ async fn cmd_serve() -> std::convert::Infallible {
     println!("  fpr command: clipd whoami");
 
     // --- QUIC endpoint ------------------------------------------------------
-    let ep = clipd_core::transport::bind(47_407)
+    // Honor CLIPD_QUIC_PORT for tests / multi-instance setups; default 47407.
+    let quic_port: u16 = std::env::var("CLIPD_QUIC_PORT")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(47_407);
+    let ep = clipd_core::transport::bind(quic_port)
         .await
-        .expect("binding QUIC :47407");
+        .expect("binding QUIC");
     let port = ep.local_addr().expect("local addr").port();
 
     // --- mDNS advertisement -------------------------------------------------
@@ -291,8 +292,8 @@ async fn cmd_serve() -> std::convert::Infallible {
             device_name: device_name(),
             quic_port: port,
         };
-        let service = clipd_core::discovery::advertise(port, &adv)
-            .expect("mdns advertisement failed");
+        let service =
+            clipd_core::discovery::advertise(port, &adv).expect("mdns advertisement failed");
         std::thread::Builder::new()
             .name("clipd-mdns".into())
             .spawn(move || {
@@ -346,7 +347,9 @@ async fn cmd_serve() -> std::convert::Infallible {
                             &mut c,
                             &mut sink,
                         )?;
-                        Ok(Some(Frame::Ack { lamport: remote_lamport }))
+                        Ok(Some(Frame::Ack {
+                            lamport: remote_lamport,
+                        }))
                     }
                     _ => Ok(None),
                 }
@@ -390,9 +393,9 @@ async fn cmd_smoke() -> Result<()> {
     std::fs::create_dir_all(&tmp)?;
     let server_id = Arc::new(DeviceIdentity::load_or_create(&tmp.join("server"))?);
     let client_id = Arc::new(DeviceIdentity::load_or_create(&tmp.join("client"))?);
-    let peers = Arc::new(tokio::sync::Mutex::new(
-        PeerStore::load(tmp.join("server").join("peers.json"))?,
-    ));
+    let peers = Arc::new(tokio::sync::Mutex::new(PeerStore::load(
+        tmp.join("server").join("peers.json"),
+    )?));
 
     // 2) Marker so the poll is unambiguous even if clipboard already has the text.
     let payload = format!("clipd-smoke-ok-{}", std::process::id());
@@ -419,13 +422,26 @@ async fn cmd_smoke() -> Result<()> {
             let applied = applied_flag.clone();
             let handler: FrameHandler<'static> = Arc::new(tokio::sync::Mutex::new(
                 move |meta: SessionMeta, frame: Frame| -> Result<Option<Frame>> {
-                    if let Frame::ClipboardText { text, origin, lamport, signature } = frame {
+                    if let Frame::ClipboardText {
+                        text,
+                        origin,
+                        lamport,
+                        signature,
+                    } = frame
+                    {
                         let mut sink = OsClipboard;
                         let mut g = g.lock().expect("guard");
                         let mut c = c.lock().expect("clock");
                         let (_, rl) = process_incoming(
-                            &meta.device_id, &origin, &signature, &text, lamport,
-                            &meta.public_key, &mut g, &mut c, &mut sink,
+                            &meta.device_id,
+                            &origin,
+                            &signature,
+                            &text,
+                            lamport,
+                            &meta.public_key,
+                            &mut g,
+                            &mut c,
+                            &mut sink,
                         )?;
                         *applied.lock().expect("flag") = true;
                         let _ = p; // payload captured for clarity; not needed in handler
@@ -445,7 +461,9 @@ async fn cmd_smoke() -> Result<()> {
     //    payload (otherwise poll would succeed trivially).
     if let Some(existing) = clipd_clipboard::read_text()? {
         if existing == payload {
-            anyhow::bail!("OS clipboard already contains smoke marker; run again with a fresh shell");
+            anyhow::bail!(
+                "OS clipboard already contains smoke marker; run again with a fresh shell"
+            );
         }
     }
     // Save & restore so we don't clobber the user's clipboard.
@@ -454,9 +472,8 @@ async fn cmd_smoke() -> Result<()> {
     // 6) Connect from the client identity, send the payload.
     let conn = clipd_core::transport::connect(&addr).await?;
     let mut cclock = LamportClock::new();
-    let _lamport = session::send_clipboard_text(
-        &conn, &client_id, &mut cclock, &payload, None,
-    ).await?;
+    let _lamport =
+        session::send_clipboard_text(&conn, &client_id, &mut cclock, &payload, None).await?;
     conn.close(0u32.into(), b"smoke-done");
 
     // 7) Poll the OS clipboard up to ~2s for the payload to appear.
