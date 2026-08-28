@@ -69,7 +69,10 @@ impl ServerCertVerifier for AcceptAny {
     }
 }
 
-fn make_self_signed_cert() -> Result<(CertificateDer<'static>, rustls::pki_types::PrivatePkcs8KeyDer<'static>)> {
+fn make_self_signed_cert() -> Result<(
+    CertificateDer<'static>,
+    rustls::pki_types::PrivatePkcs8KeyDer<'static>,
+)> {
     // rcgen's `KeyPair::generate()` defaults to ECDSA-P256, but the custom
     // verifier below only advertises ED25519 — that mismatch surfaces as
     // `NoSignatureSchemesInCommon` during the QUIC handshake (caught by the

@@ -52,9 +52,10 @@ pub fn scan(timeout: Duration) -> Result<Vec<(String /* ip */, PeerAdvertisement
         match receiver.recv_timeout(deadline - std::time::Instant::now()) {
             Ok(ServiceEvent::ServiceResolved(info)) => {
                 let props = info.get_properties();
-                if let (Some(id), Some(name)) =
-                    (props.get_property_val_str("device_id"), props.get_property_val_str("device_name"))
-                {
+                if let (Some(id), Some(name)) = (
+                    props.get_property_val_str("device_id"),
+                    props.get_property_val_str("device_name"),
+                ) {
                     let port: u16 = props
                         .get_property_val_str("port")
                         .and_then(|p| p.parse().ok())

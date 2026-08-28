@@ -35,7 +35,9 @@ pub enum Frame {
         /// hex ed25519 signature over H(domain || origin || lamport || SHA256(text))
         signature: String,
     },
-    Ack { lamport: u64 },
+    Ack {
+        lamport: u64,
+    },
 }
 
 /// Serialize + write one frame.
@@ -59,27 +61,28 @@ where
     R: AsyncReadExt + Unpin + Send,
 {
     // Detect EOF at frame boundary: read the first byte non-blocking-ish.
-    match reader.read_u8().await {
+    let first = match reader.read_u8().await {
         Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(None),
         Err(e) => return Err(e.into()),
-        Ok(first) => {
-            // first byte is MSB of the length prefix; read remaining 3 bytes.
-            let mut len_bytes = [first, 0, 0, 0];
-            reader.read_exact(&mut len_bytes[1..]).await?;
-            let len = u32::from_be_bytes(len_bytes) as usize;
-            if len > MAX_FRAME_BYTES {
-                bail!("frame claims {} bytes > limit {}", len, MAX_FRAME_BYTES);
-            }
-            if len == 0 {
-                bail!("zero-length frame is invalid");
-            }
-            let mut buf = vec![0u8; len];
-            reader.read_exact(&mut buf).await.context("frame body truncated")?;
-            let frame: Frame =
-                serde_json::from_slice(&buf).context("deserializing frame")?;
-            Ok(Some(frame))
-        }
+        Ok(b) => b,
+    };
+    // first byte is MSB of the length prefix; read remaining 3 bytes.
+    let mut len_bytes = [first, 0, 0, 0];
+    reader.read_exact(&mut len_bytes[1..]).await?;
+    let len = u32::from_be_bytes(len_bytes) as usize;
+    if len > MAX_FRAME_BYTES {
+        bail!("frame claims {} bytes > limit {}", len, MAX_FRAME_BYTES);
     }
+    if len == 0 {
+        bail!("zero-length frame is invalid");
+    }
+    let mut buf = vec![0u8; len];
+    reader
+        .read_exact(&mut buf)
+        .await
+        .context("frame body truncated")?;
+    let frame: Frame = serde_json::from_slice(&buf).context("deserializing frame")?;
+    Ok(Some(frame))
 }
 
 // ---------------------------------------------------------------------------

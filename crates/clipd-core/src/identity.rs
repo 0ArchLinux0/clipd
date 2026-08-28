@@ -74,8 +74,7 @@ impl DeviceIdentity {
 
     pub fn save_to_dir(&self, dir: &Path) -> anyhow::Result<()> {
         std::fs::create_dir_all(dir)?;
-        std::fs::write(dir.join("identity.key"), self.seed())
-            .context("writing identity.key")
+        std::fs::write(dir.join("identity.key"), self.seed()).context("writing identity.key")
     }
 
     pub fn load_or_create(dir: &Path) -> anyhow::Result<Self> {

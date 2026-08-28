@@ -26,9 +26,14 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[cfg(test)]
 mod test_init {
     use std::sync::Once;
+    // Init helper is opt-in: tests call `crate::test_init::init()` when they
+    // want logs. Not all tests need it, so silence dead_code in the binary
+    // where nothing imports this module.
+    #[allow(dead_code)]
     static INIT: Once = Once::new();
     /// Initialize tracing once per test binary. Call at the top of each test
     /// that wants to see logs (cargo test -- --nocapture + RUST_LOG=...).
+    #[allow(dead_code)]
     pub fn init() {
         INIT.call_once(|| {
             let _ = tracing_subscriber::fmt()

@@ -92,6 +92,12 @@ pub trait ClipboardSink: Send {
 ///
 /// Rejects spoofed origins (signature required), suppresses echoes via the
 /// guard, and merges the remote lamport clock. Returns the Ack counter.
+///
+/// `#[allow(clippy::too_many_arguments)]`: the 9 args are the receive-side
+/// pipeline (peer identity proof + payload + receiver state) flattened for
+/// testability. Bundling into a struct would push construction logic into
+/// every caller without changing semantics.
+#[allow(clippy::too_many_arguments)]
 pub fn process_incoming(
     meta_device_id: &str,
     origin_claim: &str,
@@ -121,7 +127,10 @@ pub fn process_incoming(
             .map_err(|_| anyhow::anyhow!("public key not 32 bytes"))?,
     )?;
     let signature = ed25519_dalek::Signature::from_slice(&sig_bytes)?;
-    vk.verify(&sign_payload(text, origin_claim, remote_lamport), &signature)?;
+    vk.verify(
+        &sign_payload(text, origin_claim, remote_lamport),
+        &signature,
+    )?;
 
     clock.observe(remote_lamport);
     let h = content_hash(text.as_bytes());
@@ -195,7 +204,9 @@ mod tests {
             "aaaa",
             /*origin*/ "bbbb",
             "00",
-            "t", 1, &id.public_key_hex(),
+            "t",
+            1,
+            &id.public_key_hex(),
             &mut guard,
             &mut clock,
             &mut sink,

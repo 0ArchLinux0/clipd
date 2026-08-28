@@ -68,7 +68,6 @@ pub fn validate_meta(meta: &SessionMeta) -> Result<()> {
     Ok(())
 }
 
-
 // ---------------------------------------------------------------------------
 // Client side
 
@@ -81,11 +80,14 @@ pub async fn client_handshake(
 ) -> Result<SessionMeta> {
     let (mut tx, mut rx) = conn.open_bi().await.context("opening stream")?;
 
-    write_frame(&mut tx, &Frame::Hello {
-        device_id: identity.device_id(),
-        public_key: identity.public_key_hex(),
-        device_name: whoami::device_name(),
-    })
+    write_frame(
+        &mut tx,
+        &Frame::Hello {
+            device_id: identity.device_id(),
+            public_key: identity.public_key_hex(),
+            device_name: whoami::device_name(),
+        },
+    )
     .await?;
 
     // Server must speak first after our Hello: it sends its Hello next.
@@ -118,11 +120,14 @@ pub async fn send_clipboard_text(
 ) -> Result<u64> {
     let (mut tx, mut rx) = conn.open_bi().await.context("opening stream")?;
 
-    write_frame(&mut tx, &Frame::Hello {
-        device_id: identity.device_id(),
-        public_key: identity.public_key_hex(),
-        device_name: whoami::device_name(),
-    })
+    write_frame(
+        &mut tx,
+        &Frame::Hello {
+            device_id: identity.device_id(),
+            public_key: identity.public_key_hex(),
+            device_name: whoami::device_name(),
+        },
+    )
     .await?;
 
     let server_meta = SessionMeta::from_hello(
@@ -141,15 +146,22 @@ pub async fn send_clipboard_text(
     let lamport = clock.tick();
     let signature = hex::encode(
         identity
-            .sign(&crate::sync::sign_payload(text, &identity.device_id(), lamport))
+            .sign(&crate::sync::sign_payload(
+                text,
+                &identity.device_id(),
+                lamport,
+            ))
             .to_bytes(),
     );
-    write_frame(&mut tx, &Frame::ClipboardText {
-        text: text.to_string(),
-        origin: identity.device_id(),
-        lamport,
-        signature,
-    })
+    write_frame(
+        &mut tx,
+        &Frame::ClipboardText {
+            text: text.to_string(),
+            origin: identity.device_id(),
+            lamport,
+            signature,
+        },
+    )
     .await?;
     // Read the Ack BEFORE finishing the send side: finishing closes the
     // stream, which can race the server's Ack write and surface as
@@ -213,11 +225,14 @@ pub async fn serve_connection(
     drop(store);
 
     // Reply with our Hello.
-    write_frame(&mut tx, &Frame::Hello {
-        device_id: identity.device_id(),
-        public_key: identity.public_key_hex(),
-        device_name: whoami::device_name(),
-    })
+    write_frame(
+        &mut tx,
+        &Frame::Hello {
+            device_id: identity.device_id(),
+            public_key: identity.public_key_hex(),
+            device_name: whoami::device_name(),
+        },
+    )
     .await?;
 
     // Message loop until peer closes.
@@ -284,23 +299,20 @@ mod tests {
 
         let applied: Arc<std::sync::Mutex<Vec<String>>> = Arc::new(std::sync::Mutex::new(vec![]));
         let applied2 = applied.clone();
-        let handler: FrameHandler<'static> = Arc::new(Mutex::new(
-            move |_meta, frame| {
-                if let Frame::ClipboardText { text, lamport, .. } = frame {
-                    applied2.lock().unwrap().push(text);
-                    Ok(Some(Frame::Ack { lamport }))
-                } else {
-                    Ok(None)
-                }
-            },
-        ));
+        let handler: FrameHandler<'static> = Arc::new(Mutex::new(move |_meta, frame| {
+            if let Frame::ClipboardText { text, lamport, .. } = frame {
+                applied2.lock().unwrap().push(text);
+                Ok(Some(Frame::Ack { lamport }))
+            } else {
+                Ok(None)
+            }
+        }));
 
         tokio::time::sleep(Duration::from_millis(50)).await;
         let peers = Arc::new(Mutex::new(
-            PeerStore::load(std::env::temp_dir().join(format!(
-                "clipd-test-peers-{}.json",
-                std::process::id()
-            )))
+            PeerStore::load(
+                std::env::temp_dir().join(format!("clipd-test-peers-{}.json", std::process::id())),
+            )
             .unwrap(),
         ));
 
@@ -321,19 +333,20 @@ mod tests {
             }
         });
 
-        let conn = crate::transport::connect(&format!("127.0.0.1:{}", addr.port())).await.unwrap();
+        let conn = crate::transport::connect(&format!("127.0.0.1:{}", addr.port()))
+            .await
+            .unwrap();
         let mut clock = LamportClock::new();
-        let _server_meta = send_clipboard_text(
-            &conn,
-            &client_id,
-            &mut clock,
-            "hello clipboard",
-            None,
-        )
-        .await
-        .unwrap();
+        let _server_meta =
+            send_clipboard_text(&conn, &client_id, &mut clock, "hello clipboard", None)
+                .await
+                .unwrap();
 
-        assert_eq!(applied.lock().unwrap().as_slice(), ["hello clipboard"], "server must have applied the text exactly once");
+        assert_eq!(
+            applied.lock().unwrap().as_slice(),
+            ["hello clipboard"],
+            "server must have applied the text exactly once"
+        );
         server_task.abort();
     }
 
@@ -367,7 +380,9 @@ mod tests {
             }
         });
 
-        let conn = crate::transport::connect(&format!("127.0.0.1:{}", addr.port())).await.unwrap();
+        let conn = crate::transport::connect(&format!("127.0.0.1:{}", addr.port()))
+            .await
+            .unwrap();
         let client_id = Arc::new(test_identity(5));
         let result = client_handshake(&conn, &client_id, None).await;
         // Handshake writes Hello, then waits for server Hello; server rejects
