@@ -41,6 +41,7 @@ async fn main() -> Result<()> {
         Some("copy") => cmd_copy(args.get(2))?,
         Some("paste") => cmd_paste()?,
         Some("whoami") => cmd_whoami()?,
+        Some("smoke") => cmd_smoke().await?,
         other => print_usage(other),
     }
     Ok(())
@@ -57,7 +58,8 @@ fn print_usage(unknown: Option<&str>) {
          clipd peers            list known devices\n\
          clipd copy [text|-]    copy text or stdin to clipboard\n\
          clipd paste            print clipboard\n\
-         clipd whoami",
+         clipd whoami\n\
+         clipd smoke            in-process local loop: send → OS clipboard update → assert",
         clipd_core::VERSION
     );
     if unknown.is_some() {
@@ -366,4 +368,123 @@ async fn cmd_serve() -> std::convert::Infallible {
         });
     }
     unreachable!("endpoint loop never ends")
+}
+
+// ---------------------------------------------------------------------------
+// smoke: in-process end-to-end loop
+//
+// Spins up a server (same machinery as `serve` but with a self-signed trust
+// store so we don't need prior pairing) on an ephemeral port, then has a
+// second identity connect and send a known text. Polls the OS clipboard
+// until that text appears, asserts, and exits 0/1.
+//
+// Why not a unit test: `OsClipboard` writes the real OS clipboard, so
+// arboard has to be wired against the actual platform. The `clipd smoke`
+// command is the user-runnable equivalent of that test.
+async fn cmd_smoke() -> Result<()> {
+    use clipd_core::session::serve_connection;
+    use clipd_core::sync::{process_incoming, LamportClock, LoopGuard};
+
+    // 1) Two ephemeral identities (don't touch real ~/Library/Application Support/clipd).
+    let tmp = std::env::temp_dir().join(format!("clipd-smoke-{}", std::process::id()));
+    std::fs::create_dir_all(&tmp)?;
+    let server_id = Arc::new(DeviceIdentity::load_or_create(&tmp.join("server"))?);
+    let client_id = Arc::new(DeviceIdentity::load_or_create(&tmp.join("client"))?);
+    let peers = Arc::new(tokio::sync::Mutex::new(
+        PeerStore::load(tmp.join("server").join("peers.json"))?,
+    ));
+
+    // 2) Marker so the poll is unambiguous even if clipboard already has the text.
+    let payload = format!("clipd-smoke-ok-{}", std::process::id());
+    println!("[smoke] will send: {payload}");
+
+    // 3) Bind a server-side QUIC endpoint on an ephemeral port.
+    let ep = clipd_core::transport::bind(0).await?;
+    let port = ep.local_addr()?.port();
+    let addr = format!("127.0.0.1:{port}");
+
+    // 4) Hand-rolled serve task identical to cmd_serve's per-connection logic.
+    let guard = Arc::new(std::sync::Mutex::new(LoopGuard::new()));
+    let clock = Arc::new(std::sync::Mutex::new(LamportClock::new()));
+    let payload_for_handler = payload.clone();
+    let applied = Arc::new(std::sync::Mutex::new(false));
+    let applied_flag = applied.clone();
+    let server_task = tokio::spawn(async move {
+        if let Some(incoming) = ep.accept().await {
+            let sid = server_id.clone();
+            let peers = peers.clone();
+            let g = guard.clone();
+            let c = clock.clone();
+            let p = payload_for_handler;
+            let applied = applied_flag.clone();
+            let handler: FrameHandler<'static> = Arc::new(tokio::sync::Mutex::new(
+                move |meta: SessionMeta, frame: Frame| -> Result<Option<Frame>> {
+                    if let Frame::ClipboardText { text, origin, lamport, signature } = frame {
+                        let mut sink = OsClipboard;
+                        let mut g = g.lock().expect("guard");
+                        let mut c = c.lock().expect("clock");
+                        let (_, rl) = process_incoming(
+                            &meta.device_id, &origin, &signature, &text, lamport,
+                            &meta.public_key, &mut g, &mut c, &mut sink,
+                        )?;
+                        *applied.lock().expect("flag") = true;
+                        let _ = p; // payload captured for clarity; not needed in handler
+                        Ok(Some(Frame::Ack { lamport: rl }))
+                    } else {
+                        Ok(None)
+                    }
+                },
+            ));
+            if let Ok(conn) = incoming.await {
+                let _ = serve_connection(conn, sid, peers, false, handler).await;
+            }
+        }
+    });
+
+    // 5) Pre-flight: make sure the OS clipboard is NOT already holding the
+    //    payload (otherwise poll would succeed trivially).
+    if let Some(existing) = clipd_clipboard::read_text()? {
+        if existing == payload {
+            anyhow::bail!("OS clipboard already contains smoke marker; run again with a fresh shell");
+        }
+    }
+    // Save & restore so we don't clobber the user's clipboard.
+    let saved = clipd_clipboard::read_text()?;
+
+    // 6) Connect from the client identity, send the payload.
+    let conn = clipd_core::transport::connect(&addr).await?;
+    let mut cclock = LamportClock::new();
+    let _lamport = session::send_clipboard_text(
+        &conn, &client_id, &mut cclock, &payload, None,
+    ).await?;
+    conn.close(0u32.into(), b"smoke-done");
+
+    // 7) Poll the OS clipboard up to ~2s for the payload to appear.
+    let deadline = std::time::Instant::now() + Duration::from_secs(2);
+    let mut got = false;
+    while std::time::Instant::now() < deadline {
+        if let Some(t) = clipd_clipboard::read_text()? {
+            if t == payload {
+                got = true;
+                break;
+            }
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+
+    // 8) Restore the user's original clipboard content (best-effort).
+    if let Some(prev) = saved {
+        let _ = clipd_clipboard::write_text(&prev);
+    }
+
+    server_task.abort();
+
+    if !got {
+        anyhow::bail!("[smoke] FAIL: OS clipboard did not contain {payload:?} after 2s");
+    }
+    if !*applied.lock().expect("flag") {
+        anyhow::bail!("[smoke] FAIL: handler reported applied=false");
+    }
+    println!("[smoke] PASS: payload reached OS clipboard via QUIC");
+    Ok(())
 }
